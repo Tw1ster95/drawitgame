@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Draw It</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://kit.fontawesome.com/7d5d311859.js" crossorigin="anonymous"></script>
+</head>
+<body>
+    <header>
+        <button id="generate-word">Get New Word</button>
+        <div>Current Word is <span id="word"></span></div>
+    </header>
+    
+    <main>
+        <div id="players-wrapper">
+            <h4>ID: points</h4>
+        </div>
+
+        <div class="game-wrapper">
+            <canvas height="600" width="800"></canvas>
+            <hr/>
+            <div class="color-selector"></div>
+            <div class="size-selector"></div>
+            <div id="clear-canvas"><i class="fas fa-trash-alt"></i></div>
+        </div>
+
+        <div class="chat-wrapper">
+            <div id="chat-log"></div>
+            <form id="chat-form">
+                <input id="message" autocomplete="off"></input>
+                <button id="send-message">Send Message</button>
+            </form>
+        </div>
+    </main>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="src/client.js"></script>
+</body>
+</html>
