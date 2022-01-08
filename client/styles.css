@@ -19,11 +19,18 @@ body {
 header {
   color: #fff;
   height: 50px;
+  width: 800px;
   font-size: 2rem;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
 }
 
 #word {
   letter-spacing: 3px;
+}
+
+#timer {
 }
 
 main {

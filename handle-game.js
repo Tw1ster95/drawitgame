@@ -1,19 +1,53 @@
-const handleGame = () => {
-    const randomWords = ['food', 'water', 'minecraft', 'sun', 'car', 'laptop'];
+const axios = require("axios").default;
 
+const handleGame = () => {
     let players = Array();
     let word = '';
     let hiddenWord = '';
 
-    const generateWord = () => {
-        word = randomWords[Math.floor(Math.random() * randomWords.length)];
-        hiddenWord = word;
-        for(var i=0; i < word.length; i++)
-            hiddenWord = replaceAt(hiddenWord, i, '_');
+    const generateWord = async () => {
+        await axios.request({
+            method: 'GET',
+            url: 'https://words-generator.p.rapidapi.com/',
+            params: {table: 'pictionary', lang: 'en', limit: '1', random: ''},
+            headers: {
+                'x-rapidapi-host': 'words-generator.p.rapidapi.com',
+                'x-rapidapi-key': '4582ef51eamshe76c9a077ecd001p1a4788jsnf00a902bfe2d'
+            }
+        })
+        .then(function (response) {
+            if(response.data.status == 'ok') {
+                word = response.data.data[0];
+                hiddenWord = word;
+                for(var i=0; i < word.length; i++)
+                    if(hiddenWord[i] !== ' ')
+                        hiddenWord = replaceAt(hiddenWord, i, '_');
+                console.log(word);
+                console.log(hiddenWord);
+            }
+            else if (response.data.status == 'fail'){
+                console.error(response.data.message);
+            }
+        })
+        .catch(function (error) {
+            console.error(error);
+        });
     }
 
     const replaceAt = (text, index, replacement) => {
         return text.substr(0, index) + replacement + text.substr(index + replacement.length);
+    }
+
+    const revealLetter = () => {
+        if(hiddenWord.includes('_')) {
+            let letter = 0;
+            do {
+                letter = Math.floor(Math.random() * word.length);
+            }
+            while(hiddenWord[letter] !== '_');
+
+            hiddenWord = replaceAt(hiddenWord, letter, word[letter]);
+        }
     }
 
     generateWord();
@@ -27,8 +61,11 @@ const handleGame = () => {
     }
 
     const addPlayer = ({ id, name }) => {
-        if(!players.find(p => p.id == id))
+        if(!players.find(p => p.id == id)) {
             players.push({ id: id, name: name, points: 0, drawer: false });
+            return true;
+        }
+        return false;
     }
 
     const removePlayer = (id) => {
@@ -78,7 +115,7 @@ const handleGame = () => {
 
     return {
         generateWord, getWord, getHiddenWord, checkWin, addPlayer, removePlayer, addScore,
-        getPlayers, getDrawer, getNextDrawer
+        getPlayers, getDrawer, getNextDrawer, revealLetter
     }
 }
 

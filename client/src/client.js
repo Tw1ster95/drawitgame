@@ -131,6 +131,10 @@ const getBoard = (canvas) => {
     sock.on('word', (word, hiddenWord) => {
         document.querySelector('#word').innerHTML = (player.drawer ? `Word to draw is ${word}` : hiddenWord);
     });
+    sock.on('update-hidden', (hiddenWord) => {
+        if(!player.drawer)
+            document.querySelector('#word').innerHTML = hiddenWord;
+    });
     sock.on('players', (players) => {
         if(players) {
             const playersWrapper = document.querySelector('#players-wrapper');
@@ -148,13 +152,15 @@ const getBoard = (canvas) => {
         }
     });
     sock.on('add-player', ({id, name, points, drawer}) => {
-        const playersWrapper = document.querySelector('#players-wrapper');
-        let div = document.createElement('div');
-        div.classList.add('player-info');
-        div.setAttribute('data-id', id);
-        div.setAttribute('data-drawer', drawer ? '1' : '0');
-        div.innerHTML = `${name}: ${points}`;
-        playersWrapper.append(div);
+        if(player.id !== id) {
+            const playersWrapper = document.querySelector('#players-wrapper');
+            let div = document.createElement('div');
+            div.classList.add('player-info');
+            div.setAttribute('data-id', id);
+            div.setAttribute('data-drawer', drawer ? '1' : '0');
+            div.innerHTML = `${name}: ${points}`;
+            playersWrapper.append(div);
+        }
     });
     sock.on('update-player', ({id, name, points}) => {
         const playerElement = document.querySelector(`[data-id='${id}']`);
@@ -181,6 +187,9 @@ const getBoard = (canvas) => {
             if(drawerElement)
                 drawerElement.setAttribute('data-drawer', '1');
         }
+    });
+    sock.on('turn-timer', (turnTimer) => {
+        document.querySelector('#timer').innerHTML = turnTimer;
     });
 
     document.querySelector('#chat-form').addEventListener('submit', onChatSubmitted(sock, player));
