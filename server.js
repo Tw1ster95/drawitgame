@@ -3,8 +3,13 @@ const express = require('express');
 const socketio = require('socket.io');
 const createBoard = require('./create-board');
 const handleGame = require('./handle-game');
+const path = require('path');
 
 const app = express();
+
+app.get('/', function(req, res) {
+    res.sendFile(path.join(__dirname, '/client/index.html'));
+});
 
 app.use(express.static(`${__dirname}/client`));
 
@@ -13,42 +18,42 @@ const MAX_PLAYERS = 8;
 const server = http.createServer(app);
 const io = socketio(server);
 const { clearTurns, getTurns, makeTurn } = createBoard();
-const { generateWord, getWord, checkWin, addPlayer, removePlayer, addScore,
-    getPlayersCount, getPlayers } = handleGame();
+const { generateWord, getWord, getHiddenWord, checkWin, addPlayer, removePlayer, addScore,
+    getPlayers, getDrawer, getNextDrawer } = handleGame();
 
 io.on('connection', (sock) => {
-    if(getPlayersCount() >= MAX_PLAYERS) {
-        sock.emit('game-full');
-        return;
-    }
-    sock.emit('word', getWord());
-    sock.emit('board', getTurns());
-    sock.emit('players', getPlayers());
-
-    sock.on('new-player', (id) => {
-        addPlayer(id);
-        io.emit('message', `New player with ID ${id} joined.`);
-        io.emit('add-player', { id, points: 0 });
+    sock.on('new-player', ({ id, name }) => {
+        if(getPlayers().length >= MAX_PLAYERS)
+            sock.emit('game-full');
+        else {
+            addPlayer({ id, name });
+            sock.emit('board', getTurns());
+            if(!getDrawer()) {
+                generateWord();
+                io.emit('new-drawer', getNextDrawer());
+            }
+            sock.emit('players', getPlayers());
+            io.emit('message', `${name} joined.`);
+            sock.emit('word', getWord(), getHiddenWord());
+        }
     });
     sock.on('player-leave', (id) => {
         removePlayer(id);
         io.emit('message', `Player with ID ${id} left.`);
         io.emit('remove-player', id);
     });
-    sock.on('generate-word', (id) => {
-        const word = generateWord();
-        io.emit('new-word', word);
-        io.emit('message', `Player with ID ${id} generated a new word.`);
-    });
-    sock.on('message', ({ text, id }) => {
-        io.emit('message', `${id}: ${text}`);
-        if(checkWin(text)) {
-            const new_points = addScore(1, id);
-            io.emit('message', `Player with ID ${id} found the word first.`);
-            io.emit('update-player', {id, new_points});
+    sock.on('message', ({ text, player }) => {
+        io.emit('message', `${player.name}: ${text}`);
+        if(!player.drawer && checkWin(text)) {
+            player.points = addScore(1, player.id);
+            io.emit('message', `${player.name} found the word first.`);
+            io.emit('update-player', player);
 
-            const word = generateWord();
-            io.emit('new-word', word);
+            io.emit('new-drawer', getNextDrawer());
+            clearTurns();
+            io.emit('reset');
+            generateWord();
+            io.emit('word', getWord(), getHiddenWord());
 
             io.emit('message', `New game started.`);
         }

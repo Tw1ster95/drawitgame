@@ -18,6 +18,12 @@ body {
 
 header {
   color: #fff;
+  height: 50px;
+  font-size: 2rem;
+}
+
+#word {
+  letter-spacing: 3px;
 }
 
 main {
@@ -37,6 +43,10 @@ li {
   align-items: center;
   gap: 1rem;
   color: #fff;
+}
+
+.player-info[data-drawer="1"] {
+  color: deepskyblue;
 }
 
 .game-wrapper {

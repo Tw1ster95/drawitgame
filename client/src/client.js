@@ -7,7 +7,7 @@ const sendText = (text) => {
     parent.scrollTop = parent.scrollHeight;
 };
 
-const onChatSubmitted = (sock, id) => (e) => {
+const onChatSubmitted = (sock, player) => (e) => {
     e.preventDefault();
 
     const input = document.querySelector('#message');
@@ -16,16 +16,21 @@ const onChatSubmitted = (sock, id) => (e) => {
 
     let doc = new DOMParser().parseFromString(text, 'text/html');
 
-    sock.emit('message', { text: (doc.body.textContent || ""), id });
+    sock.emit('message', { text: (doc.body.textContent || ""), player });
 };
 
 const getMouseCoordinates = (element, e) => {
-    const { top, left } = element.getBoundingClientRect();
+    const { top, left, bottom, right } = element.getBoundingClientRect();
     const { clientX, clientY } = e;
+    const isOutside = (clientX < left
+        || clientY < top
+        || clientX > (right - 3)
+        || clientY > (bottom - 3));
 
     return {
         x: clientX - left,
-        y: clientY - top
+        y: clientY - top,
+        isOutside
     }
 }
 
@@ -57,94 +62,103 @@ const getBoard = (canvas) => {
 }
 
 (() => {
+    let player = {
+        id: sessionStorage.getItem("id"),
+        name: sessionStorage.getItem("name"),
+        drawer: false,
+        drawing: false,
+        old_x: 0,
+        old_y: 0,
+        color: 'black',
+        size: 5
+    }
+
+    if(!player.id || !player.name) {
+        location.href = location.origin;
+        return;
+    }
+
     const canvas = document.querySelector('canvas');
     const { drawLine, clearCanvas, renderBoard } = getBoard(canvas);
     clearCanvas();
     const sock = io();
 
-    sock.on('game-full', () => {
-        alert('Game Room is full')
-    });
-
-    let playerID = Math.floor(Math.random() * 10000);
-    sock.emit('new-player', playerID);
-
-    let isDrawing = false;
-    let old_x = 0, old_y = 0;
-    let color = 'black';
-    let size = 5;
+    sock.emit('new-player', player);
 
     const onMouseDown = (e) => {
-        const { x, y } = getMouseCoordinates(canvas, e);
-        old_x = x;
-        old_y = y;
-        isDrawing = true;
+        if(player.drawer) {
+            const { x, y, isOutside } = getMouseCoordinates(canvas, e);
+            if(!isOutside) {
+                player.old_x = x;
+                player.old_y = y;
+                player.drawing = true;
+            }
+        }
     }
 
     const onMouseUp = (e) => {
-        if(isDrawing) {
-            old_x = 0;
-            old_y = 0;
-            isDrawing = false;
+        if(player.drawing) {
+            player.old_x = 0;
+            player.old_y = 0;
+            player.drawing = false;
         }
-    }
-
-    const onLeave = () => {
-        sock.emit('player-leave', playerID);
     }
 
     const Draw = (e) => {
-        if(isDrawing) {
-            const { x, y } = getMouseCoordinates(canvas, e);
-            sock.emit('turn', { old_x, old_y, x, y, color, size });
-            old_x = x;
-            old_y = y;
+        if(player.drawer && player.drawing) {
+            const { x, y, isOutside } = getMouseCoordinates(canvas, e);
+            if(!isOutside) {
+                sock.emit('turn', { old_x: player.old_x, old_y:player.old_y, x, y, color: player.color, size: player.size });
+                player.old_x = x;
+                player.old_y = y;
+            }
+            else {
+                player.old_x = 0;
+                player.old_y = 0;
+                player.drawing = false;
+            }
         }
     }
 
-    const setColor = (e) => {
-        color = e.target.style.backgroundColor;
-    }
-    const setSize = (e) => {
-        size = e.target.getAttribute('data-size');
-        console.log(size);
-    }
-
-    const resetBoard = (e) => {
-        sock.emit('reset');
-    }
-
+    sock.on('game-full', () => {
+        alert('Game Room is full');
+        location.href = location.origin;
+    });
     sock.on('board', (turns) => {
         clearCanvas();
         renderBoard(turns);
     });
-    sock.on('word', (word) => {
-        document.querySelector('#word').innerHTML = word;
+    sock.on('word', (word, hiddenWord) => {
+        document.querySelector('#word').innerHTML = (player.drawer ? `Word to draw is ${word}` : hiddenWord);
     });
     sock.on('players', (players) => {
         if(players) {
             const playersWrapper = document.querySelector('#players-wrapper');
             let div;
             players.forEach(p => {
+                if(p.id == player.id && p.drawer)
+                    player.drawer = true;
                 div = document.createElement('div');
                 div.classList.add('player-info');
                 div.setAttribute('data-id', p.id);
-                div.innerHTML = `${p.id}: ${p.points}`;
+                div.setAttribute('data-drawer', p.drawer ? '1' : '0');
+                div.innerHTML = `${p.name}: ${p.points}`;
                 playersWrapper.append(div);
             })
         }
     });
-    sock.on('add-player', ({id, points}) => {
+    sock.on('add-player', ({id, name, points, drawer}) => {
         const playersWrapper = document.querySelector('#players-wrapper');
         let div = document.createElement('div');
         div.classList.add('player-info');
         div.setAttribute('data-id', id);
-        div.innerHTML = `${id}: ${points}`;
+        div.setAttribute('data-drawer', drawer ? '1' : '0');
+        div.innerHTML = `${name}: ${points}`;
         playersWrapper.append(div);
     });
-    sock.on('update-player', ({id, new_points}) => {
+    sock.on('update-player', ({id, name, points}) => {
         const playerElement = document.querySelector(`[data-id='${id}']`);
-        playerElement.innerHTML = `${id}: ${new_points}`;
+        playerElement.innerHTML = `${name}: ${points}`;
     });
     sock.on('remove-player', (id) => {
         const playerElement = document.querySelector(`[data-id='${id}']`);
@@ -156,13 +170,20 @@ const getBoard = (canvas) => {
     });
     sock.on('reset', () => {
         clearCanvas();
-    })
-    sock.on('new-word', (word) => {
-        document.querySelector('#word').innerHTML = word;
-        sock.emit('reset');
-    })
+    });
+    sock.on('new-drawer', (drawer) => {
+        if(drawer) {
+            player.drawer = (drawer.id == player.id);
+            let drawerElement = document.querySelector('.player-info[data-drawer="1"]');
+            if(drawerElement)
+                drawerElement.setAttribute('data-drawer', '0');
+            drawerElement = document.querySelector(`.player-info[data-id="${drawer.id}"]`);
+            if(drawerElement)
+                drawerElement.setAttribute('data-drawer', '1');
+        }
+    });
 
-    document.querySelector('#chat-form').addEventListener('submit', onChatSubmitted(sock, playerID));
+    document.querySelector('#chat-form').addEventListener('submit', onChatSubmitted(sock, player));
 
     canvas.addEventListener('mousedown', onMouseDown);
     canvas.addEventListener('mousemove', Draw);
@@ -171,6 +192,12 @@ const getBoard = (canvas) => {
     const colors = ['black','white','red','green','blue','cyan','yellow','brown','orange'];
     const sizes = [3, 5, 10, 15, 20];
     
+    const setColor = (e) => {
+        player.color = e.target.style.backgroundColor;
+    }
+    const setSize = (e) => {
+        player.size = e.target.getAttribute('data-size');
+    }
     const colorSelector = document.querySelector('.color-selector');
     const sizeSelector = document.querySelector('.size-selector');
     let div;
@@ -190,12 +217,12 @@ const getBoard = (canvas) => {
         div.addEventListener('click', setSize);
     });
 
-    document.querySelector('#clear-canvas').addEventListener('click', resetBoard);
-
-    document.querySelector('#generate-word').addEventListener('click', () => {
-        sock.emit('generate-word', playerID);
+    document.querySelector('#clear-canvas').addEventListener('click', (e) => {
+        sock.emit('reset');
     });
 
     // Player Closes window
-    window.addEventListener("beforeunload", onLeave);
+    window.addEventListener("beforeunload", (e) => {
+        sock.emit('player-leave', player.id);
+    });
 })();
