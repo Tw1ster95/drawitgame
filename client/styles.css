@@ -30,9 +30,6 @@ header {
   letter-spacing: 3px;
 }
 
-#timer {
-}
-
 main {
   display: flex;
   flex-direction: row;
