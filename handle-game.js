@@ -22,8 +22,6 @@ const handleGame = () => {
                 for(var i=0; i < word.length; i++)
                     if(hiddenWord[i] !== ' ')
                         hiddenWord = replaceAt(hiddenWord, i, '_');
-                console.log(word);
-                console.log(hiddenWord);
             }
             else if (response.data.status == 'fail'){
                 console.error(response.data.message);

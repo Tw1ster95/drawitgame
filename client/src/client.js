@@ -231,7 +231,7 @@ const getBoard = (canvas) => {
     });
 
     // Player Closes window
-    window.addEventListener("beforeunload", (e) => {
+    window.addEventListener("beforeunload", function (e) {
         sock.emit('player-leave', player.id);
     });
 })();
