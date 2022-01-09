@@ -191,6 +191,9 @@ const getBoard = (canvas) => {
     sock.on('turn-timer', (turnTimer) => {
         document.querySelector('#timer').innerHTML = turnTimer;
     });
+    sock.on('disconnected', (player) => {
+        document.querySelector(`.player-info[data-id="${player.id}"]`).remove();
+    });
 
     document.querySelector('#chat-form').addEventListener('submit', onChatSubmitted(sock, player));
 
@@ -228,10 +231,5 @@ const getBoard = (canvas) => {
 
     document.querySelector('#clear-canvas').addEventListener('click', (e) => {
         sock.emit('reset');
-    });
-
-    // Player Closes window
-    window.addEventListener("beforeunload", function (e) {
-        sock.emit('player-leave', player.id);
     });
 })();

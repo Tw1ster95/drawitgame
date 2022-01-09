@@ -58,12 +58,17 @@ const handleGame = () => {
         return text.toLowerCase() == word.toLowerCase() ? true : false;
     }
 
-    const addPlayer = ({ id, name }) => {
+    const addPlayer = ({ id, name, sockid }) => {
         if(!players.find(p => p.id == id)) {
-            players.push({ id: id, name: name, points: 0, drawer: false });
+            players.push({ id: id, name: name, sockid, points: 0, drawer: false });
             return true;
         }
         return false;
+    }
+    
+    const getPlayerFromSock = (sockid) => {
+        const index = players.findIndex(p => p.sockid == sockid);
+        return (index > -1) ? players[index] : null;
     }
 
     const removePlayer = (id) => {
@@ -113,7 +118,7 @@ const handleGame = () => {
 
     return {
         generateWord, getWord, getHiddenWord, checkWin, addPlayer, removePlayer, addScore,
-        getPlayers, getDrawer, getNextDrawer, revealLetter
+        getPlayers, getDrawer, getNextDrawer, revealLetter, getPlayerFromSock
     }
 }
 

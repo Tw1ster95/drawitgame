@@ -23,7 +23,7 @@ const server = http.createServer(app);
 const io = socketio(server);
 const { clearTurns, getTurns, makeTurn } = createBoard();
 const { generateWord, getWord, getHiddenWord, checkWin, addPlayer, removePlayer, addScore,
-    getPlayers, getDrawer, getNextDrawer, revealLetter } = handleGame();
+    getPlayers, getDrawer, getNextDrawer, revealLetter, getPlayerFromSock } = handleGame();
 
 setInterval(
     async () => {
@@ -58,7 +58,7 @@ io.on('connection', (sock) => {
         if(getPlayers().length >= MAX_PLAYERS)
             sock.emit('game-full');
         else {
-            const new_player = addPlayer({ id, name });
+            const new_player = addPlayer({ id, name, sockid: sock.id });
             sock.emit('players', getPlayers());
             sock.emit('board', getTurns());
             if(new_player)
@@ -72,10 +72,10 @@ io.on('connection', (sock) => {
             io.emit('message', `${name} joined.`);
         }
     });
-    sock.on('player-leave', (id) => {
-        removePlayer(id);
-        io.emit('message', `Player with ID ${id} left.`);
-        io.emit('remove-player', id);
+    sock.on('player-leave', (player) => {
+        removePlayer(player.id);
+        io.emit('message', `Player ${player.name} left.`);
+        io.emit('remove-player', player.id);
     });
     sock.on('message', async ({ text, player }) => {
         io.emit('message', `${player.name}: ${text}`);
@@ -103,7 +103,23 @@ io.on('connection', (sock) => {
         clearTurns();
         io.emit('reset');
     });
-
+    sock.on('disconnect', async () => {
+        const player = getPlayerFromSock(sock.id);
+        if(player) {
+            removePlayer(player.id);
+            io.emit('disconnected', player);
+            io.emit('message', `${player.name} left the game.`);
+            if(player.drawer) {
+                io.emit('new-drawer', getNextDrawer());
+                clearTurns();
+                io.emit('reset');
+                await generateWord();
+                io.emit('word', getWord(), getHiddenWord());
+                turnTimer = MAX_TURN_TIME;
+                revealTimer = LETTER_REVEAL_ON;
+            }
+        }
+    });
 });
 
 server.on('error', (err) => {
